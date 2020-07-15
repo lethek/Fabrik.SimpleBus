@@ -1,46 +1,47 @@
-﻿using Fabrik.Common;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
+using Fabrik.SimpleBus.Common;
 
 namespace Fabrik.SimpleBus
 {
+    //Based on: http://stackoverflow.com/questions/14096614/creating-a-message-bus-with-tpl-dataflow
     public class InProcessBus : IBus
     {
-        private readonly ConcurrentQueue<Subscription> subscriptionRequests = new ConcurrentQueue<Subscription>();
-        private readonly ConcurrentQueue<Guid> unsubscribeRequests = new ConcurrentQueue<Guid>();
-        private readonly ActionBlock<SendMessageRequest> messageProcessor;
+        private readonly ActionBlock<SendMessageRequest> _messageProcessor;
+        private readonly ConcurrentQueue<Subscription> _subscriptionRequests = new ConcurrentQueue<Subscription>();
+        private readonly ConcurrentQueue<Guid> _unsubscribeRequests = new ConcurrentQueue<Guid>();
 
         public InProcessBus()
         {
             // Only ever accessed from (single threaded) ActionBlock, so it is thread safe
             var subscriptions = new List<Subscription>();
 
-            messageProcessor = new ActionBlock<SendMessageRequest>(async request =>
+            _messageProcessor = new ActionBlock<SendMessageRequest>(async request =>
             {
                 // Process unsubscribe requests
                 Guid subscriptionId;
-                while (unsubscribeRequests.TryDequeue(out subscriptionId))
+                while (_unsubscribeRequests.TryDequeue(out subscriptionId))
                 {
-                    Trace.TraceInformation("Removing subscription '{0}'.".FormatWith(subscriptionId));
+                    Trace.TraceInformation($"Removing subscription '{subscriptionId}'.");
                     subscriptions.RemoveAll(s => s.Id == subscriptionId);
                 }
 
                 // Process subscribe requests
                 Subscription newSubscription;
-                while (subscriptionRequests.TryDequeue(out newSubscription))
+                while (_subscriptionRequests.TryDequeue(out newSubscription))
                 {
-                    Trace.TraceInformation("Adding subscription '{0}'.".FormatWith(newSubscription.Id));
+                    Trace.TraceInformation($"Adding subscription '{newSubscription.Id}'.");
                     subscriptions.Add(newSubscription);
                 }
 
                 var result = true;
 
-                Trace.TraceInformation("Processing message type '{0}'.".FormatWith(request.Payload.GetType().FullName));
+                Trace.TraceInformation($"Processing message type '{request.Payload.GetType().FullName}'.");
 
                 foreach (var subscription in subscriptions)
                 {
@@ -50,17 +51,17 @@ namespace Fabrik.SimpleBus
                         result = false;
                         break;
                     }
-                    
+
                     try
                     {
-                        Trace.TraceInformation("Executing subscription '{0}' handler.".FormatWith(subscription.Id));
+                        Trace.TraceInformation($"Executing subscription '{subscription.Id}' handler.");
                         await subscription.Handler.Invoke(request.Payload, request.CancellationToken);
                     }
                     catch (Exception ex)
-                    {                        
-                        Trace.TraceError("There was a problem executing subscription '{0}' handler. Exception message: {1}".FormatWith(subscription.Id, ex.Message));
+                    {
+                        Trace.TraceError(
+                            $"There was a problem executing subscription '{subscription.Id}' handler. Exception message: {ex.Message}");
                         result = false;
-                        continue;
                     }
                 }
 
@@ -68,7 +69,7 @@ namespace Fabrik.SimpleBus
                 request.OnSendComplete(result);
             });
         }
-               
+
         public Task SendAsync<TMessage>(TMessage message)
         {
             return SendAsync(message, CancellationToken.None);
@@ -80,7 +81,7 @@ namespace Fabrik.SimpleBus
             Ensure.Argument.NotNull(cancellationToken, "cancellationToken");
 
             var tcs = new TaskCompletionSource<bool>();
-            messageProcessor.Post(new SendMessageRequest(message, cancellationToken, result => tcs.SetResult(result)));
+            _messageProcessor.Post(new SendMessageRequest(message, cancellationToken, result => tcs.SetResult(result)));
             return tcs.Task;
         }
 
@@ -96,14 +97,14 @@ namespace Fabrik.SimpleBus
         public Guid Subscribe<TMessage>(Func<TMessage, CancellationToken, Task> handler)
         {
             Ensure.Argument.NotNull(handler, "handler");
-            var subscription = Subscription.Create<TMessage>(handler);
-            subscriptionRequests.Enqueue(subscription);
+            var subscription = Subscription.Create(handler);
+            _subscriptionRequests.Enqueue(subscription);
             return subscription.Id;
         }
 
         public void Unsubscribe(Guid subscriptionId)
         {
-            unsubscribeRequests.Enqueue(subscriptionId);
+            _unsubscribeRequests.Enqueue(subscriptionId);
         }
     }
 }

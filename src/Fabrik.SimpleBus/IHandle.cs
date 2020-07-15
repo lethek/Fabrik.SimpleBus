@@ -1,5 +1,4 @@
-﻿
-namespace Fabrik.SimpleBus
+﻿namespace Fabrik.SimpleBus
 {
     public interface IHandle<TMessage>
     {

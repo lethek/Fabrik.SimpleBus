@@ -1,33 +1,33 @@
-﻿using Fabrik.Common;
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Fabrik.SimpleBus.Common;
 
 namespace Fabrik.SimpleBus
 {
     internal sealed class Subscription
     {
-        public Guid Id { get; private set; }
-        public Func<object, CancellationToken, Task> Handler { get; private set; }
-
-        Subscription(Func<object, CancellationToken, Task> handler)
+        private Subscription(Func<object, CancellationToken, Task> handler)
         {
             Ensure.Argument.NotNull(handler, "handler");
             Id = Guid.NewGuid();
             Handler = handler;
         }
 
+        public Guid Id { get; }
+        public Func<object, CancellationToken, Task> Handler { get; }
+
         public static Subscription Create<TMessage>(Func<TMessage, CancellationToken, Task> handler)
         {
-            Func<object, CancellationToken, Task> handlerWithCheck = async (message, cancellationToken) =>
+            async Task HandlerWithCheck(object message, CancellationToken cancellationToken)
             {
-                if (message.GetType().Implements<TMessage>())
+                if (message is TMessage typedMessage)
                 {
-                    await handler.Invoke((TMessage)message, cancellationToken);
+                    await handler.Invoke(typedMessage, cancellationToken);
                 }
-            };
+            }
 
-            return new Subscription(handlerWithCheck);
+            return new Subscription(HandlerWithCheck);
         }
     }
 }

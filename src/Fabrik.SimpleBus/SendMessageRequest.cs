@@ -1,17 +1,15 @@
-﻿using Fabrik.Common;
-using System;
+﻿using System;
 using System.Threading;
+using Fabrik.SimpleBus.Common;
 
 namespace Fabrik.SimpleBus
 {
     internal sealed class SendMessageRequest
     {
-        public object Payload { get; private set; }
-        public CancellationToken CancellationToken { get; private set; }
-        public Action<bool> OnSendComplete { get; private set; }
-
         public SendMessageRequest(object payload, CancellationToken cancellationToken)
-            : this(payload, cancellationToken, success => { }) { }
+            : this(payload, cancellationToken, success => { })
+        {
+        }
 
         public SendMessageRequest(object payload, CancellationToken cancellationToken, Action<bool> onSendComplete)
         {
@@ -23,5 +21,9 @@ namespace Fabrik.SimpleBus
             CancellationToken = cancellationToken;
             OnSendComplete = onSendComplete;
         }
+
+        public object Payload { get; }
+        public CancellationToken CancellationToken { get; }
+        public Action<bool> OnSendComplete { get; }
     }
 }
