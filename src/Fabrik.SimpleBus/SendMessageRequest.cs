@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Threading;
-using Fabrik.SimpleBus.Common;
 
 namespace Fabrik.SimpleBus
 {
@@ -13,9 +12,8 @@ namespace Fabrik.SimpleBus
 
         public SendMessageRequest(object payload, CancellationToken cancellationToken, Action<bool> onSendComplete)
         {
-            Ensure.Argument.NotNull(payload, "payload");
-            Ensure.Argument.NotNull(cancellationToken, "cancellationToken");
-            Ensure.Argument.NotNull(onSendComplete, "onSendComplete");
+            if (payload == null) throw new ArgumentNullException(nameof(payload));
+            if (onSendComplete == null) throw new ArgumentNullException(nameof(onSendComplete));
 
             Payload = payload;
             CancellationToken = cancellationToken;

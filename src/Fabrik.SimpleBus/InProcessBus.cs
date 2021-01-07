@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
-using Fabrik.SimpleBus.Common;
 
 namespace Fabrik.SimpleBus
 {
@@ -77,8 +76,7 @@ namespace Fabrik.SimpleBus
 
         public Task SendAsync<TMessage>(TMessage message, CancellationToken cancellationToken)
         {
-            Ensure.Argument.NotNull(message, "message");
-            Ensure.Argument.NotNull(cancellationToken, "cancellationToken");
+            if (message == null) throw new ArgumentNullException(nameof(message));
 
             var tcs = new TaskCompletionSource<bool>();
             _messageProcessor.Post(new SendMessageRequest(message, cancellationToken, result => tcs.SetResult(result)));
@@ -96,7 +94,8 @@ namespace Fabrik.SimpleBus
 
         public Guid Subscribe<TMessage>(Func<TMessage, CancellationToken, Task> handler)
         {
-            Ensure.Argument.NotNull(handler, "handler");
+            if (handler == null) throw new ArgumentNullException(nameof(handler));
+
             var subscription = Subscription.Create(handler);
             _subscriptionRequests.Enqueue(subscription);
             return subscription.Id;

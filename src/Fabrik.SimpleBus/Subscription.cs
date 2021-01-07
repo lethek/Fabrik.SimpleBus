@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Fabrik.SimpleBus.Common;
 
 namespace Fabrik.SimpleBus
 {
@@ -9,9 +8,8 @@ namespace Fabrik.SimpleBus
     {
         private Subscription(Func<object, CancellationToken, Task> handler)
         {
-            Ensure.Argument.NotNull(handler, "handler");
+            Handler = handler ?? throw new ArgumentNullException(nameof(handler));
             Id = Guid.NewGuid();
-            Handler = handler;
         }
 
         public Guid Id { get; }
